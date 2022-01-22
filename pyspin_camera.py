@@ -1,4 +1,7 @@
 import PySpin
+import socket
+import time
+import imagezmq
 
 class PySpinCamera:
     def __init__(self):
@@ -36,13 +39,8 @@ class PySpinCamera:
         if image_result.IsIncomplete():
             print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
         else:
-            width = image_result.GetWidth()
-            height = image_result.GetHeight()
-            stride = image_result.GetStride()
-            d = image_result.GetData()
-            # image = image.scaledToHeight(512)
-            return image
-
+            return image_result.GetNDArray()
+           
     def leave_acquisition_mode(self):
         self.cam.EndAcquisition()
 
@@ -110,3 +108,11 @@ class PySpinCamera:
             result = False
 
         return result
+
+if __name__ == '__main__':
+    camera = PySpinCamera()
+    camera.enter_acquisition_mode()
+    sender = imagezmq.ImageSender(connect_to='tcp://inspectionscope.local:5555')
+    while True:
+        image = camera.acquire_image()
+        sender.send_image("inspectionscope", image)
