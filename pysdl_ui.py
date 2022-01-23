@@ -10,6 +10,8 @@ import ctypes
 from collections import deque
 from simple_pyspin import Camera
 import numpy as np
+import cv2
+
 def acquire(d):
     cam = Camera() # Acquire Camera
     cam.init() # Initialize camera
@@ -23,13 +25,13 @@ def acquire(d):
     cam.close() # You should explicitly clean up
 
 def run():
-    d = deque([], 2)
+    d = deque([], 10)
     th = threading.Thread(target=acquire, args=(d,))
     th.start()
 
 
     sdl2.ext.init()
-    window = sdl2.ext.Window("Hello World!", size=(1440, 1080))
+    window = sdl2.ext.Window("Hello World!", size=(3840, 2160))
     window.show()
     windowSurf = sdl2.SDL_GetWindowSurface(window.window)
     windowArray = sdl2.ext.pixels3d(windowSurf.contents)
@@ -46,12 +48,14 @@ def run():
 
         try:
             image = d.pop()
-            
         except IndexError:
             pass
         else:
-            image = np.repeat(image[..., np.newaxis].swapaxes(0,1), 4, axis=2)
-            numpy.copyto(windowArray, image)
+            image = image.swapaxes(0,1)
+            image = cv2.cvtColor(image,cv2.COLOR_GRAY2RGBA)
+            image = cv2.resize(image, (2160,3840))
+            windowArray[:, :, :] = image
+            #image = np.repeat(image[..., np.newaxis].swapaxes(0,1), 4, axis=2)
             window.refresh()
 
         #timer.SDL_Delay(10)
