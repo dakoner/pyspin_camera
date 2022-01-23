@@ -28,17 +28,16 @@ def run():
             if event.type == events.SDL_QUIT:
                 running = False
                 break
-        window.refresh()
 
         rpi_name, jpg_buffer = image_hub.recv_jpg()
         image = simplejpeg.decode_jpeg( jpg_buffer, colorspace='GRAY')
         image_hub.send_reply(b'OK')
-        print("copy")
-
         repeated = numpy.repeat(image, 4, axis=2)
-        print(repeated.shape)
+        print(repeated[0][0]
         numpy.copyto(windowArray, repeated)
+
         window.refresh()
+
         #timer.SDL_Delay(10)
 
 
