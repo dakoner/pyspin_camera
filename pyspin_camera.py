@@ -1,7 +1,9 @@
+import numpy as np
 import PySpin
 import socket
 import time
 import imagezmq
+import simplejpeg
 
 class PySpinCamera:
     def __init__(self):
@@ -112,7 +114,10 @@ class PySpinCamera:
 if __name__ == '__main__':
     camera = PySpinCamera()
     camera.enter_acquisition_mode()
-    sender = imagezmq.ImageSender(connect_to='tcp://inspectionscope.local:5555')
+    sender = imagezmq.ImageSender(connect_to='tcp://desktop-h3tsld0.local:5555')
+   
+
     while True:
         image = camera.acquire_image()
-        sender.send_image("inspectionscope", image)
+        jpg_buffer = simplejpeg.encode_jpeg(image[..., np.newaxis], quality=55, colorspace='GRAY')
+        sender.send_jpg("inspectionscope", jpg_buffer)
