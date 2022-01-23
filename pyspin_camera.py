@@ -114,10 +114,10 @@ class PySpinCamera:
 if __name__ == '__main__':
     camera = PySpinCamera()
     camera.enter_acquisition_mode()
-    sender = imagezmq.ImageSender(connect_to='tcp://desktop-h3tsld0.local:5555')
+    sender = imagezmq.ImageSender(connect_to='tcp://awow.local:5555')
    
 
     while True:
         image = camera.acquire_image()
         jpg_buffer = simplejpeg.encode_jpeg(image[..., np.newaxis], quality=55, colorspace='GRAY')
-        sender.send_jpg("inspectionscope", jpg_buffer)
+        sender.send_jpg("awow.local", jpg_buffer)
