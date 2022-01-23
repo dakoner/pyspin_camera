@@ -17,9 +17,8 @@ def acquire(d):
     cam.start() # Start recording
     while True:
         img = cam.get_array()
-        print(img.shape)
-        d.append(np.repeat(img[..., np.newaxis].swapaxes(0,1), 4, axis=2))
-
+        d.append(img)
+        
     cam.stop() # Stop recording
     cam.close() # You should explicitly clean up
 
@@ -47,12 +46,13 @@ def run():
 
         try:
             image = d.pop()
-            numpy.copyto(windowArray, image)
+            
         except IndexError:
             pass
-        
-
-        window.refresh()
+        else:
+            image = np.repeat(image[..., np.newaxis].swapaxes(0,1), 4, axis=2)
+            numpy.copyto(windowArray, image)
+            window.refresh()
 
         #timer.SDL_Delay(10)
 
