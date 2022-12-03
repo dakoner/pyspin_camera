@@ -1,0 +1,197 @@
+import signal
+import sys
+import numpy as np
+import pdb
+from PyQt5 import QtCore
+import PySpin
+
+
+
+class Worker(QtCore.QThread):
+    imageChanged = QtCore.pyqtSignal(np.ndarray, int, int, int)
+
+    def __init__(self, camera):
+        super().__init__()
+        self.camera = camera
+
+    @QtCore.pyqtSlot()
+    def run(self):
+        while True:
+            image_result = self.camera.GetNextImage()
+            if image_result.IsIncomplete():
+                print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
+            else:
+                width = image_result.GetWidth()
+                height = image_result.GetHeight()
+                stride = image_result.GetStride()
+                d = image_result.GetData()
+                self.imageChanged.emit(d, width, height, stride)
+
+
+class PySpinCamera(QtCore.QObject):
+    exposureChanged = QtCore.pyqtSignal(float)
+    autoExposureModeChanged = QtCore.pyqtSignal(bool)
+    acquisitionModeChanged = QtCore.pyqtSignal(bool)
+    imageChanged = QtCore.pyqtSignal(np.ndarray, int, int, int)
+
+    def __init__(self, camera, parent=None):
+        super().__init__(parent)
+        self.camera = camera
+
+        
+        self.worker = None
+       
+
+        self.nodemap_tldevice = self.camera.GetTLDeviceNodeMap()
+        self.camera.Init()
+        self.nodemap = self.camera.GetNodeMap()
+
+        self._name = 'barf'
+    def initialize(self):
+        return self.camera.Init()
+
+    def acquire(self):
+        image_result = self.camera.GetNextImage()
+        if image_result.IsIncomplete():
+            print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
+            return None
+        else:
+            width = image_result.GetWidth()
+            height = image_result.GetHeight()
+            stride = image_result.GetStride()
+            d = image_result.GetData()
+            return d, width, height, stride
+
+    def callback(self, d, w, h, s):
+        self.imageChanged.emit(d, w, h, s)
+
+    def begin(self):
+        self.worker = Worker(self.camera)
+        self.worker.imageChanged.connect(self.callback)
+        self.worker.start()
+        self.camera.BeginAcquisition()
+
+    def end(self):
+        self.worker.terminate()
+        self.worker = None
+        self.camera.EndAcquisition()
+
+    @QtCore.pyqtProperty(str, notify=acquisitionModeChanged)
+    def acquisitionMode(self):
+        node_acquisition_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionMode'))
+        return node_acquisition_mode.ToString()
+
+    @acquisitionMode.setter
+    def acquisitionMode(self, acquisitionMode):
+        node_acquisition_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionMode'))
+        acquisitionMode_value = node_acquisition_mode.GetEntryByName(acquisitionMode).GetValue()
+        if acquisitionMode_value == node_acquisition_mode.GetIntValue(): return
+        node_acquisition_mode.SetIntValue(acquisitionMode_value)
+        self.acquisitionModeChanged.emit(node_acquisition_mode.GetIntValue()) 
+
+
+    @QtCore.pyqtProperty(str)
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        self._name = name
+
+
+    @QtCore.pyqtProperty(bool)#, notify=autoExposureModeChanged)
+    def autoExposureMode(self):
+        node_autoExposure_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('ExposureAuto'))    
+        currentValue = node_autoExposure_mode.GetIntValue()
+        if currentValue == PySpin.ExposureAuto_Off: returnValue= False
+        elif currentValue == PySpin.ExposureAuto_On: returnValue= True
+        return returnValue
+
+    @autoExposureMode.setter
+    def autoExposureMode(self, autoExposureMode):
+        self._name = autoExposureMode
+
+        currentValue = self.camera.ExposureAuto.GetValue()
+        if autoExposureMode is False:
+            if currentValue is PySpin.ExposureAuto_Off: return
+            self.camera.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+
+        elif autoExposureMode is True:
+            if currentValue is PySpin.ExposureAuto_On: return
+            self.camera.ExposureAuto.SetValue(PySpin.ExposureAuto_On)
+
+        currentValue = self.camera.ExposureAuto.GetValue()
+
+        if currentValue == PySpin.ExposureAuto_Off: returnValue= False
+        elif currentValue == PySpin.ExposureAuto_On: returnValue= True
+        self.autoExposureModeChanged.emit(returnValue) 
+
+    @QtCore.pyqtProperty(float, notify=exposureChanged)
+    def exposure(self):
+        return self.camera.ExposureTime.GetValue()
+
+    @exposure.setter
+    def exposure(self, exposure):
+        if exposure == self.camera.ExposureTime.GetValue():
+            return
+        self.camera.ExposureTime.SetValue(exposure)
+        self.exposureChanged.emit(self.camera.ExposureTime.GetValue()) 
+
+        
+class QApplication(QtCore.QCoreApplication):
+    def __init__(self, *args, **kwargs):
+        super(QApplication, self).__init__(*args, **kwargs)
+            
+        self.system = PySpin.System.GetInstance()
+        self.cam_list = self.system.GetCameras()
+        self.cam = self.cam_list[0]
+        self.p = PySpinCamera(self.cam)
+
+        self.p.imageChanged.connect(self.acq_callback)
+        self.p.exposureChanged.connect(self.exp_callback)
+
+
+        self.p.initialize()
+        self.p.acquisitionMode = 'Continuous'
+        print(self.p.name)
+        print(self.p.autoExposureMode)
+        self.p.autoExposureMode = False
+        self.p.exposure=5.0
+
+        self.p.begin()
+    
+
+        self.time = QtCore.QTimer()
+        self.time.timeout.connect(self.changeExposure)
+        self.time.start(1000)
+
+    def changeExposure(self): 
+        print("set exposure to 5")       
+        self.p.exposure=5.0
+
+    def exp_callback(self, value):
+        print("exposure", value)
+
+    def acq_callback(self, d, height, width, stride):
+        pass
+        #print("acq_callback")
+        #print(d)
+        #print(height, width, stride)
+
+    def __del__(self):
+        self.cam.DeInit()
+        del self.p
+        del self.cam
+        self.cam_list.Clear()
+        self.system.ReleaseInstance()
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    q = QApplication(sys.argv)
+    q.exec_()
+    
+
+    # p.begin()
+    # while True:
+    #     print(p.acquire())
