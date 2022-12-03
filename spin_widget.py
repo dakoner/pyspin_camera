@@ -25,21 +25,11 @@ class SpinWidget(QtWidgets.QWidget):
         
         self.camera.initialize()
         self.camera.acquisitionMode = 'Continuous'
-        self.camera.autoExposureMode = False
-        self.camera.exposure=5.0
+        self.camera.autoExposureMode = True
+        #self.camera.exposure=5.0
 
         self.camera.begin()
     
-
-        #self.camera.enter_acquisition_mode()
-        #print(self.camera.ExposureTime.GetMax())
-        
-        # self.label.setAlignment(QtCore.Qt.AlignRight)
-        # self.label.setAlignment(QtCore.Qt.AlignVCenter)
-        # self.label.setWindowFlag(QtCore.Qt.FramelessWindowHint)
-        # self.label.setAttribute(QtCore.Qt.WA_NoSystemBackground)
-        # self.label.setAttribute(QtCore.Qt.WA_TranslucentBackground)
-
         self.sp = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.sp.valueChanged.connect(self.exposure_change)
         self.sp.setMinimum(0)
@@ -79,9 +69,64 @@ class SpinWidget(QtWidgets.QWidget):
         return True
 
     def camera_callback(self, d, width, height, stride):
+        print("camera callback")
         t0 = time.time()
         #print(t0-self.t0)
         self.t0 = t0
         image = QtGui.QImage(d, width, height, stride, QtGui.QImage.Format_Grayscale8)
         pixmap = QtGui.QPixmap.fromImage(image)
         self.label.setPixmap(pixmap)
+
+
+
+
+
+# class QApplication(QtCore.QCoreApplication):
+#     def __init__(self, *args, **kwargs):
+#         super(QApplication, self).__init__(*args, **kwargs)
+            
+#         self.system = PySpin.System.GetInstance()
+#         self.cam_list = self.system.GetCameras()
+#         self.cam = self.cam_list[0]
+#         self.p = PySpinCamera(self.cam)
+
+#         self.p.imageChanged.connect(self.acq_callback)
+#         self.p.exposureChanged.connect(self.exp_callback)
+
+
+#         self.p.initialize()
+#         self.p.acquisitionMode = 'Continuous'
+#         self.p.autoExposureMode = False
+#         self.p.exposure=5.0
+
+#         self.p.begin()
+    
+
+#         self.time.timeout.connect(self.changeExposure)
+#         self.time.start(1000)
+
+#     def changeExposure(self): 
+#         print("set exposure to 5")       
+#         self.p.exposure=5.0
+
+#     def exp_callback(self, value):
+#         print("exposure", value)
+
+
+#     def __del__(self):
+#         self.cam.DeInit()
+#         del self.p
+#         del self.cam
+#         self.cam_list.Clear()
+#         self.system.ReleaseInstance()
+
+# if __name__ == "__main__":
+#     signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+#     q = QApplication(sys.argv)
+#     q.exec_()
+    
+
+#     # p.begin()
+#     # while True:
+#     #     print(p.acquire())

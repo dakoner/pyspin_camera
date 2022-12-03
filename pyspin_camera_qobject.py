@@ -17,15 +17,19 @@ class Worker(QtCore.QThread):
     @QtCore.pyqtSlot()
     def run(self):
         while True:
-            image_result = self.camera.GetNextImage()
-            if image_result.IsIncomplete():
-                print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
-            else:
-                width = image_result.GetWidth()
-                height = image_result.GetHeight()
-                stride = image_result.GetStride()
-                d = image_result.GetData()
-                self.imageChanged.emit(d, width, height, stride)
+            self.acquire_callback()
+        
+
+    def acquire_callback(self):
+        image_result = self.camera.GetNextImage()
+        if image_result.IsIncomplete():
+            print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
+        else:
+            width = image_result.GetWidth()
+            height = image_result.GetHeight()
+            stride = image_result.GetStride()
+            d = image_result.GetData()
+            self.imageChanged.emit(d, width, height, stride)
 
 
 class PySpinCamera(QtCore.QObject):
@@ -48,18 +52,6 @@ class PySpinCamera(QtCore.QObject):
 
     def initialize(self):
         return self.camera.Init()
-
-    def acquire(self):
-        image_result = self.camera.GetNextImage()
-        if image_result.IsIncomplete():
-            print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
-            return None
-        else:
-            width = image_result.GetWidth()
-            height = image_result.GetHeight()
-            stride = image_result.GetStride()
-            d = image_result.GetData()
-            return d, width, height, stride
 
     def callback(self, d, w, h, s):
         self.imageChanged.emit(d, w, h, s)
@@ -92,7 +84,6 @@ class PySpinCamera(QtCore.QObject):
 
     @QtCore.pyqtProperty(bool)#, notify=autoExposureModeChanged)
     def autoExposureMode(self):
-        print("b")
         try:
             node_autoExposure_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('ExposureAuto'))    
             currentValue = node_autoExposure_mode.GetIntValue()
@@ -105,8 +96,6 @@ class PySpinCamera(QtCore.QObject):
 
     @autoExposureMode.setter
     def autoExposureMode(self, autoExposureMode):
-        print("a")
-
         currentValue = self.camera.ExposureAuto.GetValue()
         if autoExposureMode is False:
             if currentValue is PySpin.ExposureAuto_Off: return
@@ -133,59 +122,4 @@ class PySpinCamera(QtCore.QObject):
             return
         self.camera.ExposureTime.SetValue(exposure)
         self.exposureChanged.emit(self.camera.ExposureTime.GetValue()) 
-
         
-class QApplication(QtCore.QCoreApplication):
-    def __init__(self, *args, **kwargs):
-        super(QApplication, self).__init__(*args, **kwargs)
-            
-        self.system = PySpin.System.GetInstance()
-        self.cam_list = self.system.GetCameras()
-        self.cam = self.cam_list[0]
-        self.p = PySpinCamera(self.cam)
-
-        self.p.imageChanged.connect(self.acq_callback)
-        self.p.exposureChanged.connect(self.exp_callback)
-
-
-        self.p.initialize()
-        self.p.acquisitionMode = 'Continuous'
-        self.p.autoExposureMode = False
-        self.p.exposure=5.0
-
-        self.p.begin()
-    
-
-        self.time.timeout.connect(self.changeExposure)
-        self.time.start(1000)
-
-    def changeExposure(self): 
-        print("set exposure to 5")       
-        self.p.exposure=5.0
-
-    def exp_callback(self, value):
-        print("exposure", value)
-
-    def acq_callback(self, d, height, width, stride):
-        pass
-        #print("acq_callback")
-        #print(d)
-        #print(height, width, stride)
-
-    def __del__(self):
-        self.cam.DeInit()
-        del self.p
-        del self.cam
-        self.cam_list.Clear()
-        self.system.ReleaseInstance()
-
-if __name__ == "__main__":
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-
-    q = QApplication(sys.argv)
-    q.exec_()
-    
-
-    # p.begin()
-    # while True:
-    #     print(p.acquire())
