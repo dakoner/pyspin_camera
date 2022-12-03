@@ -1,23 +1,9 @@
 import time
 from PyQt5 import QtGui, QtCore, QtWidgets
-from pyspin_camera import PySpinCamera
-
+from pyspin_camera_qobject import PySpinCamera
+import PySpin
 
 import numpy as np
-
-class Worker(QtCore.QThread):
-   
-    stateChanged = QtCore.pyqtSignal(np.ndarray, int, int, int)
-
-    def __init__(self, camera):
-        super().__init__()
-        self.camera = camera
-
-    @QtCore.pyqtSlot()
-    def run(self):
-        while True:
-            d, width, height, stride = self.camera.acquire_image()
-            self.stateChanged.emit(d, width, height, stride)
 
 class SpinWidget(QtWidgets.QWidget):
     def __init__(self, *args, **kwargs):
@@ -29,8 +15,23 @@ class SpinWidget(QtWidgets.QWidget):
         self.layout.addWidget(self.label)
         self.label.setFixedSize(1440,1080)
 
-        self.camera = PySpinCamera()
-        self.camera.enter_acquisition_mode()
+
+        self.system = PySpin.System.GetInstance()
+        self.cam_list = self.system.GetCameras()
+        self.cam = self.cam_list[0]
+        self.camera = PySpinCamera(self.cam)
+
+        self.camera.imageChanged.connect(self.camera_callback)
+        
+        self.camera.initialize()
+        self.camera.acquisitionMode = 'Continuous'
+        self.camera.autoExposureMode = False
+        self.camera.exposure=5.0
+
+        self.camera.begin()
+    
+
+        #self.camera.enter_acquisition_mode()
         #print(self.camera.ExposureTime.GetMax())
         
         # self.label.setAlignment(QtCore.Qt.AlignRight)
@@ -58,29 +59,22 @@ class SpinWidget(QtWidgets.QWidget):
         self.gp.setTickInterval(5)
         self.layout.addWidget(self.gp)
 
-        self.worker = Worker(self.camera)
-        self.worker.stateChanged.connect(self.camera_callback)
-        self.worker.start()
-        self.t0 = time.time()
-        self.camera.enable_gain()
-
     def exposure_change(self, value):
         if value == 0:
             print("enable auto")
-            self.camera.reset_exposure()
+            self.camera.autoExposureMode = True
         else:
             print('set exposure time to', value)
-            self.camera.configure_exposure(value)
+            self.camera.autoExposureMode = False
+            self.camera.exposure = value
         return True
 
 
     def gain_change(self, value):
         if value == 0:
             print("enable auto")
-            self.camera.disable_gain()
         else:
             print('set exposure time to', value)
-            self.camera.enable_gain()
             self.camera.configure_gain(value)
         return True
 

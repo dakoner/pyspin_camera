@@ -46,7 +46,6 @@ class PySpinCamera(QtCore.QObject):
         self.camera.Init()
         self.nodemap = self.camera.GetNodeMap()
 
-        self._name = 'barf'
     def initialize(self):
         return self.camera.Init()
 
@@ -90,26 +89,23 @@ class PySpinCamera(QtCore.QObject):
         self.acquisitionModeChanged.emit(node_acquisition_mode.GetIntValue()) 
 
 
-    @QtCore.pyqtProperty(str)
-    def name(self):
-        return self._name
-
-    @name.setter
-    def name(self, name):
-        self._name = name
-
 
     @QtCore.pyqtProperty(bool)#, notify=autoExposureModeChanged)
     def autoExposureMode(self):
-        node_autoExposure_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('ExposureAuto'))    
-        currentValue = node_autoExposure_mode.GetIntValue()
-        if currentValue == PySpin.ExposureAuto_Off: returnValue= False
-        elif currentValue == PySpin.ExposureAuto_On: returnValue= True
-        return returnValue
+        print("b")
+        try:
+            node_autoExposure_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('ExposureAuto'))    
+            currentValue = node_autoExposure_mode.GetIntValue()
+            if currentValue == PySpin.ExposureAuto_Off: returnValue= False
+            elif currentValue == PySpin.ExposureAuto_Continuous: returnValue= True
+            return returnValue
+        except:
+            import traceback
+            traceback.print_exc()
 
     @autoExposureMode.setter
     def autoExposureMode(self, autoExposureMode):
-        self._name = autoExposureMode
+        print("a")
 
         currentValue = self.camera.ExposureAuto.GetValue()
         if autoExposureMode is False:
@@ -117,13 +113,13 @@ class PySpinCamera(QtCore.QObject):
             self.camera.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
 
         elif autoExposureMode is True:
-            if currentValue is PySpin.ExposureAuto_On: return
-            self.camera.ExposureAuto.SetValue(PySpin.ExposureAuto_On)
+            if currentValue is PySpin.ExposureAuto_Continuous: return
+            self.camera.ExposureAuto.SetValue(PySpin.ExposureAuto_Continuous)
 
         currentValue = self.camera.ExposureAuto.GetValue()
 
         if currentValue == PySpin.ExposureAuto_Off: returnValue= False
-        elif currentValue == PySpin.ExposureAuto_On: returnValue= True
+        elif currentValue == PySpin.ExposureAuto_Continuous: returnValue= True
         self.autoExposureModeChanged.emit(returnValue) 
 
     @QtCore.pyqtProperty(float, notify=exposureChanged)
@@ -132,6 +128,7 @@ class PySpinCamera(QtCore.QObject):
 
     @exposure.setter
     def exposure(self, exposure):
+        print("Autoexposure value:",  self.camera.ExposureAuto.GetValue())
         if exposure == self.camera.ExposureTime.GetValue():
             return
         self.camera.ExposureTime.SetValue(exposure)
@@ -153,15 +150,12 @@ class QApplication(QtCore.QCoreApplication):
 
         self.p.initialize()
         self.p.acquisitionMode = 'Continuous'
-        print(self.p.name)
-        print(self.p.autoExposureMode)
         self.p.autoExposureMode = False
         self.p.exposure=5.0
 
         self.p.begin()
     
 
-        self.time = QtCore.QTimer()
         self.time.timeout.connect(self.changeExposure)
         self.time.start(1000)
 
