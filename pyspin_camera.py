@@ -1,9 +1,6 @@
-import numpy as np
 import PySpin
-import socket
-import time
-import imagezmq
-import simplejpeg
+import signal
+import sys
 
 class PySpinCamera:
     def __init__(self):
@@ -21,7 +18,8 @@ class PySpinCamera:
         self.nodemap_tldevice = self.cam.GetTLDeviceNodeMap()
         self.cam.Init()
         self.nodemap = self.cam.GetNodeMap()
-        
+
+
     def enter_acquisition_mode(self):
         node_acquisition_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionMode'))
         if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
@@ -41,13 +39,19 @@ class PySpinCamera:
         if image_result.IsIncomplete():
             print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
         else:
-            return image_result.GetNDArray()
-           
+            width = image_result.GetWidth()
+            height = image_result.GetHeight()
+            stride = image_result.GetStride()
+            d = image_result.GetData()
+            return d, width, height, stride
+
     def leave_acquisition_mode(self):
         self.cam.EndAcquisition()
 
     def __del__(self):
         self.reset_exposure()
+        self.reset_gain()
+
         self.cam.DeInit()
         del self.cam
         self.cam_list.Clear()
@@ -72,6 +76,7 @@ class PySpinCamera:
 
             # Ensure desired exposure time does not exceed the maximum
             exposure_time_to_set = value
+            print(self.cam.ExposureTime.GetMax())
             exposure_time_to_set = min(self.cam.ExposureTime.GetMax(), exposure_time_to_set)
             self.cam.ExposureTime.SetValue(exposure_time_to_set)
 
@@ -111,13 +116,80 @@ class PySpinCamera:
 
         return result
 
-if __name__ == '__main__':
-    camera = PySpinCamera()
-    camera.enter_acquisition_mode()
-    sender = imagezmq.ImageSender(connect_to='tcp://desktop-h3tsld0.local:5555')
-   
 
-    while True:
-        image = camera.acquire_image()
-        jpg_buffer = simplejpeg.encode_jpeg(image[..., np.newaxis], quality=55, colorspace='GRAY')
-        sender.send_jpg("inspectionscope", jpg_buffer)
+## TODO: finish this and make sure it works
+
+    def configure_gain(self, value):
+        
+        try:
+            result = True
+            
+            node_gain = PySpin.CFloatPtr(self.nodemap.GetNode('Gain'))
+            print(node_gain)
+            print('Regular function message:\n\tGain about to be changed to %f...\n' % value)
+            node_gain.SetValue(value)
+
+        
+
+        except PySpin.SpinnakerException as ex:
+            print('Error: %s' % ex)
+            result = False
+
+        return result
+
+
+    def enable_gain(self):
+        """
+        This function returns the camera to a normal state by re-enabling automatic exposure.
+
+        :return: True if successful, False otherwise.
+        :rtype: bool
+        """
+        try:
+            result = True
+
+            # Turn automatic exposure back on
+            #
+            # *** NOTES ***
+            # Automatic exposure is turned on in order to return the camera to its
+            # default state.
+
+            node_gain_auto = PySpin.CEnumerationPtr(self.nodemap.GetNode('GainAuto'))
+            node_gain_auto_on = PySpin.CEnumEntryPtr(node_gain_auto.GetEntryByName('On'))
+
+            node_gain_auto.SetIntValue(node_gain_auto_on.GetValue())
+            print('Automatic gain disabled...')
+
+
+        except PySpin.SpinnakerException as ex:
+            print('Error: %s' % ex)
+            result = False
+
+        return result
+    def disable_gain(self):
+        """
+        This function returns the camera to a normal state by re-enabling automatic exposure.
+
+        :return: True if successful, False otherwise.
+        :rtype: bool
+        """
+        try:
+            result = True
+
+            # Turn automatic exposure back on
+            #
+            # *** NOTES ***
+            # Automatic exposure is turned on in order to return the camera to its
+            # default state.
+
+            node_gain_auto = PySpin.CEnumerationPtr(self.nodemap.GetNode('GainAuto'))
+            node_gain_auto_off = PySpin.CEnumEntryPtr(node_gain_auto.GetEntryByName('Off'))
+            node_gain_auto.SetIntValue(node_gain_auto_off.GetValue())
+            print('Automatic gain disabled...')
+
+
+        except PySpin.SpinnakerException as ex:
+            print('Error: %s' % ex)
+            result = False
+
+        return result
