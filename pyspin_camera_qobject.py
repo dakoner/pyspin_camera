@@ -69,8 +69,7 @@ class PySpinCamera(QtCore.QObject):
 
     @QtCore.pyqtProperty(str, notify=acquisitionModeChanged)
     def acquisitionMode(self):
-        node_acquisition_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionMode'))
-        return node_acquisition_mode.ToString()
+        return self.camera.AcquisitionMode.ToString()
 
     @acquisitionMode.setter
     def acquisitionMode(self, acquisitionMode):

@@ -19,6 +19,8 @@ class SpinWidget(QtWidgets.QWidget):
         self.system = PySpin.System.GetInstance()
         self.cam_list = self.system.GetCameras()
         self.cam = self.cam_list[0]
+        print(self.cam_list)
+        import pdb; pdb.set_trace()
         self.camera = PySpinCamera(self.cam)
 
         self.camera.imageChanged.connect(self.camera_callback)
@@ -69,7 +71,6 @@ class SpinWidget(QtWidgets.QWidget):
         return True
 
     def camera_callback(self, d, width, height, stride):
-        print("camera callback")
         t0 = time.time()
         #print(t0-self.t0)
         self.t0 = t0
