@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name="pyspin_camera",
+    name="video_sender",
     version="1.0",
-    packages=find_packages("pyspin_camera"),
-    scripts=['scripts/pyspin-camera']
+    packages=['video_sender', 'video_sender.pyspin_camera', 'video_sender.uvc_camera'],
+    scripts=['scripts/video-sender']
 )

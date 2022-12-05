@@ -42,6 +42,15 @@ class PySpinCamera(QtCore.QObject):
 
     def __init__(self, camera, parent=None):
         super().__init__(parent)
+        self.system = PySpin.System.GetInstance()
+        self.cam_list = self.system.GetCameras()
+        self.cam = self.cam_list[0]
+        self.camera = PySpinCamera(self.cam)
+        self.camera.imageChanged.connect(self.camera_callback, QtCore.Qt.DirectConnection)
+        self.camera.initialize()
+        self.camera.acquisitionMode = 'Continuous'
+        self.camera.autoExposureMode = True
+
         self.camera = camera
 
         
@@ -51,6 +60,8 @@ class PySpinCamera(QtCore.QObject):
         self.nodemap_tldevice = self.camera.GetTLDeviceNodeMap()
         self.camera.Init()
         self.nodemap = self.camera.GetNodeMap()
+
+        self.camera.begin()
 
     def initialize(self):
         return self.camera.Init()
