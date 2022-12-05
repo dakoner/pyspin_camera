@@ -13,7 +13,8 @@ class Worker(QtCore.QThread):
     def __init__(self, camera):
         super().__init__()
         self.camera = camera
-
+        
+        
     @QtCore.pyqtSlot()
     def run(self):
         while True:
@@ -29,6 +30,7 @@ class Worker(QtCore.QThread):
             height = image_result.GetHeight()
             stride = image_result.GetStride()
             d = image_result.GetData()
+            
             self.imageChanged.emit(d, width, height, stride)
 
 
@@ -58,7 +60,7 @@ class PySpinCamera(QtCore.QObject):
 
     def begin(self):
         self.worker = Worker(self.camera)
-        self.worker.imageChanged.connect(self.callback)
+        self.worker.imageChanged.connect(self.callback, QtCore.Qt.DirectConnection)
         self.worker.start()
         self.camera.BeginAcquisition()
 

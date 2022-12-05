@@ -1,3 +1,4 @@
+import cv2
 import time
 import signal
 from PyQt5 import QtCore
@@ -5,10 +6,10 @@ import numpy as np
 import imagezmq
 import simplejpeg
 import sys
-from pyspin_camera_qobject import PySpinCamera
+from .pyspin_camera_qobject import PySpinCamera
 import PySpin
 
-IMAGE_TIMEOUT=0.01
+IMAGE_TIMEOUT=.065
 port = 5000
 
 
@@ -21,12 +22,12 @@ class VideoSender:
         self.cam_list = self.system.GetCameras()
         self.cam = self.cam_list[0]
         self.camera = PySpinCamera(self.cam)
-        self.camera.imageChanged.connect(self.camera_callback)
+        self.camera.imageChanged.connect(self.camera_callback, QtCore.Qt.DirectConnection)
 
         self.camera.initialize()
         self.camera.acquisitionMode = 'Continuous'
         self.camera.autoExposureMode = True
-        
+
         self.sender = imagezmq.ImageSender("tcp://*:{}".format(port), REQ_REP=False)
         self.camera.begin()
 
@@ -39,8 +40,8 @@ class VideoSender:
         self.t0 = t0
         img = np.array(img)
         img = img.reshape(height, width, 1)
-        jpg_buffer = simplejpeg.encode_jpeg(img, quality=90, colorspace='GRAY')
-        self.sender.send_jpg("image", jpg_buffer)
+        jpg_buffer = simplejpeg.encode_jpeg(img, quality=100, colorspace='GRAY')
+        self.sender.send_jpg(time.time(), jpg_buffer)
 
     # def get_image(self):
     #     cap = cv2.VideoCapture('/dev/video0', 0)
@@ -74,8 +75,3 @@ class QApplication(QtCore.QCoreApplication):
         self.vs = VideoSender()
 
     
-if __name__ == "__main__":
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-
-    q = QApplication(sys.argv)
-    q.exec_()
